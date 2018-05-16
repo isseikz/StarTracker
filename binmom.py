@@ -16,6 +16,7 @@ def binalize(img):
 def getMoments(img):
     mu = cv2.moments(img, False)
     x,y= int(mu["m10"]/mu["m00"]) , int(mu["m01"]/mu["m00"])
+
     return np.array([x,y])
 
 def run(img):
@@ -37,5 +38,5 @@ if __name__ == '__main__':
     error, center = run(img)
 
     cv2.circle(img, (center[0],center[1]), 4, 100, 2, 4)
-    plt.imshow(img)
+    plt.imshow(cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
     plt.show()
