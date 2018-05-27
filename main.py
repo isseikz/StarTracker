@@ -12,26 +12,23 @@ import numpy as np
 
 import binmom
 import controlViaSerial as cvs
+import gainAdjuster as ga
 
-def controlMotor1(error, mcu, threshold):
-    # TODO しきい値の再定義
-    startCode = [17,34,51,68]
-    flag = 16
-    dataSize = 2
+import serial
 
-    if error[0] > thresholdCTRL:
+def controlMotor1(error, com, threshold):
+    #TODOしきい値の再定義
+    if error[0] > threshold:
         data = [1,1]
-    elif error[0] < -thresholdCTRL:
+        sentData = bytearray(b'\x11\x22\x33\x44\x10\x02\x00\x05\r\n')
+        com.write(sentData)
+    elif error[0] < -threshold:
         data = [0,1]
-        sentData = startCode.extend(flag).extend(dataSize).extend(data)
-        res = mcu.controlMCU(sentData)
-        return res
+        sentData = bytearray(b'\x11\x22\x33\x44\x10\x02\x01\x05\r\n')
+        com.write(sentData)
+        return True
     else:
         return True
-
-# def redefineThresholdCTRL(threshold, error):
-
-
 
 def run():
     thresholdCTRL = 10 #threshold for driving motor or not[pixel]
@@ -67,7 +64,10 @@ def run():
     conn.request("GET", "/liveview.JPG?!1234!http-get%3a*%3aimage%2fjpeg%3a*!!!!!")
     res = conn.getresponse()
 
-    mcu = cvs.SerialCTRl(COM5)
+    ser = serial.Serial("COM10", 115200)
+    com = cvs.SerialCTRl(ser)
+    sentData = bytearray(b'\x11\x22\x33\x44\x11')
+    com.write(sentData)
 
     cnt = 0
     while True:
@@ -111,7 +111,7 @@ def run():
                 pass
 
         # redefineThresholdCTRL(thresholdCTRL, error)
-        controlMotor1(error, mcu, thresholdCTRL)
+        controlMotor1(error, com, thresholdCTRL)
 
 
 if __name__ == '__main__':
