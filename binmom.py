@@ -13,7 +13,7 @@ def binalize(img):
                                  cv2.THRESH_BINARY)
     return img_binalized
 
-def getMoments(img):
+def getCoG(img):
     mu = cv2.moments(img, False)
     x,y= int(mu["m10"]/mu["m00"]) ,int(mu["m01"]/mu["m00"])
 
@@ -21,16 +21,16 @@ def getMoments(img):
 
 def run(img):
     img_size = np.array([img.shape[1],img.shape[0]])
-    print("Width: %d, Height: %d" % (img_size[0], img_size[1]))
 
     img_binalized = binalize(img)
-    center = getMoments(img_binalized)
-
+    center = getCoG(img_binalized)
     error = center - img_size/2
-    error[1]=-error[1]
 
-    print("Position: [%d, %d]" % (center[0],center[1]))
-    print("Error: [%d, %d]" % (error[0], error[1]))
+    # print("Position: [%d, %d]" % (center[0],center[1]))
+    # print("Error: [%d, %d]" % (error[0], error[1]))
+    # print("Center: [%d, %d]" % (center[0], center[1]))
+
+    cv2.circle(img, (center[0],center[1]), int(img.shape[1] * 0.01), (0, 0, 255), -1)
 
     return error, center
 
