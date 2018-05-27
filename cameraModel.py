@@ -11,8 +11,8 @@ class CameraModel(object):
         super(CameraModel, self).__init__()
         self.initialImage   = ii
         self.currentImage   = ii
-        # self.planetVelocity = [10,-2] # [pixel/step]
-        self.planetVelocity = [0,0] # [pixel/step]
+        self.planetVelocity = [10,-2] # [pixel/step]
+        # self.planetVelocity = [0,0] # [pixel/step]
         self.imageSize      = tuple(np.array([self.initialImage.shape[1], self.initialImage.shape[0]]))
         self.position       = [0,0]
         self.gearRate       = 1.5
