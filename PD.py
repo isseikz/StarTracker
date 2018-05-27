@@ -13,11 +13,9 @@ class PDControl(object):
         self.omega    = omega
         self.zeta     = zeta
 
-    def updateData(self, x, xDot):
+    def updateData(self, x):
+        self.xDot = x - self.x
         self.x    = x
-        self.xDot = xDot
-        print(self.x)
-        print(self.xDot)
 
     def getControlParam(self):
         pTerm = self.omega ** 2 * self.x
@@ -29,22 +27,17 @@ class PDControl(object):
 
 if __name__ == '__main__':
     model = cameraModel.CameraModel(cv2.imread('./test/IMAGE_MOON.JPG'))
-    controller = PDControl(0.8, 0.3)
+    controller = PDControl(0.5, 0.3)
 
     error =[100,100] # huristic value
-    pastError = [0,0]
     while True:
         key = cv2.waitKey(100)&0xff
         if key == ord('s'):
             break
 
         error, center = binmom.run(model.currentImage)
-        dError = np.array(error - pastError)
-        controller.updateData(error, dError)
+        controller.updateData(error)
         ctrl = controller.getControlParam()
 
         model.updateImage(*ctrl)
         model.showCurrentImage()
-    else:
-        model.showCurrentImage()
-        cv2.waitKey(0)

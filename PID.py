@@ -15,10 +15,10 @@ class PIDControl(object):
         self.zeta     = zeta
         self.kappa    = kappa
 
-    def updateData(self, x, xDot, xDt):
+    def updateData(self, x):
+        self.xDot = x - self.x
+        self.xDt  = x + self.xDt
         self.x    = x
-        self.xDot = xDot
-        self.xDt  = xDt
         print(self.x)
         print(self.xDot)
 
@@ -33,7 +33,7 @@ class PIDControl(object):
 
 if __name__ == '__main__':
     model = cameraModel.CameraModel(cv2.imread('./test/IMAGE_MOON.JPG'))
-    controller = PIDControl(0.8, 0.3, 0.2)
+    controller = PIDControl(0.5, 0.3, 0.3)
 
     error =[100,100] # huristic value
     pastError = [0,0]
@@ -44,9 +44,7 @@ if __name__ == '__main__':
             break
 
         error, center = binmom.run(model.currentImage)
-        dError = np.array(error - pastError)
-        integralError += error
-        controller.updateData(error, dError, integralError)
+        controller.updateData(error)
         ctrl = controller.getControlParam()
 
         model.updateImage(*ctrl)
