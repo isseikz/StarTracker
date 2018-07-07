@@ -1,5 +1,6 @@
-import pysony
-import six
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
 import http
 
 import time
@@ -10,64 +11,136 @@ from PIL import Image
 from matplotlib import pyplot as plt
 import numpy as np
 
-import binmom
-import controlViaSerial as cvs
-import gainAdjuster as ga
+import json
+import urllib.parse
+from time import sleep
+
+import PD
+import PID
 
 import serial
 
-def controlMotor1(error, com, threshold):
-    #TODOしきい値の再定義
-    if error[0] > threshold:
-        data = [1,1]
-        sentData = bytearray(b'\x11\x22\x33\x44\x10\x02\x00\x05\r\n')
-        com.write(sentData)
-    elif error[0] < -threshold:
-        data = [0,1]
-        sentData = bytearray(b'\x11\x22\x33\x44\x10\x02\x01\x05\r\n')
-        com.write(sentData)
-        return True
+import binmom
+import controlViaSerial as cvs
+import gainAdjuster as ga
+import msearch
+
+def sendData(steps, com):
+    # TODO: implementation
+    """convert the steps into packet data and send it"""
+    if steps[0] < 0:
+        dir = b'\x00'
     else:
-        return True
+        dir = b'\x01'
+
+
+    if abs(steps[0]) > 250:
+        phase = int(250)
+    else:
+        phase = int(round(abs(steps[0])))
+
+    data = bytearray()
+    phaseBytes = phase.to_bytes(1,'big')
+    data =b'\x11\x22\x33\x44\x10\x02' + dir + phaseBytes + b'\r\n'
+
+    com.write(data)
+    pass
+
+def controlMotor1(error, com, threshold):
+    if error[0] > threshold:
+        yaw = b'\x01'
+    elif error[0] < -threshold:
+        yaw = b'\x00'
+    else:
+        yaw = b'\x10'
+        pass
+
+    if error[1] > threshold*2:
+        pitch = b'\x01'
+    elif error[1] < -threshold*2:
+        pitch = b'\x00'
+    else:
+        pitch = b'\x10'
+        pass
+
+    sentData = b'\x11\x22\x33\x44\x10\x02'+yaw+pitch +b'\r\n'
+    com.write(sentData)
+    return True
+
+def controlMotorPD(controller, error, com):
+    """send data to ESP32 with desired steps calculated by PD control."""
+    controller.updateData(error)
+    ctrl = controller.getControlParam()
+    sendData(ctrl,com)
+
+
+def controlMotorPID(controller, error, com):
+    """send data to ESP32 with desired steps calculated by PID control."""
+    controller.updateData(error)
+    ctrl = controller.getControlParam()
+    sendData(ctrl,com)
+
 
 def run():
     thresholdCTRL = 10 #threshold for driving motor or not[pixel]
 
-    search = pysony.ControlPoint()
-    cameras = search.discover(5)
-    if len(cameras) == 0:
-        print("Your camera is not found...")
-        exit()
-        pass
+    uri, host, url, cameraHost, cameraUrl =  msearch.urlLiveview()
+    print(f'connect to http://{host}/{url}')
 
-    print(cameras)
-    for x in cameras:
-        print("Camera: %s" % x)
+    print(cameraHost)
+    print(cameraUrl)
+    control = http.client.HTTPConnection(cameraHost)
+    jsonDict = {"method":"startLiveview","params":[],"id":1,"version":"1.0"}
+    jsonData = json.dumps(jsonDict)
+    print(jsonData)
+    control.request("POST", cameraUrl, body=jsonData)
+    # control.request("POST", cameraUrl)
+    conres = control.getresponse()
+    control.close()
+    jsonRes = json.load(conres)
+    print(jsonRes)
+    print(urllib.parse.unquote(jsonRes['result'][0]))
 
-    if len(cameras) > 1:
-        print("Which?[0]")
-        for cam in cameras:
-            print(cam)
+    control = http.client.HTTPConnection(cameraHost)
+    jsonDict = {"method":"setShootMode","params":["movie"],"id":1,"version":"1.0"}
+    jsonData = json.dumps(jsonDict)
+    print(jsonData)
+    control.request("POST", cameraUrl, body=jsonData)
+    # control.request("POST", cameraUrl)
+    conres = control.getresponse()
+    control.close()
+    jsonRes = json.load(conres)
+    print(jsonRes)
+    #
+    control = http.client.HTTPConnection(cameraHost)
+    jsonDict = {"method":"startMovieRec","params":[],"id":1,"version":"1.0"}
+    jsonData = json.dumps(jsonDict)
+    print(jsonData)
+    control.request("POST", cameraUrl, body=jsonData)
+    # control.request("POST", cameraUrl)
+    conres = control.getresponse()
+    control.close()
+    jsonRes = json.load(conres)
+    print(jsonRes)
 
-    # TODO: 複数のデバイスが見つかった時に選択させる
-    x = cameras[0]
-    camera = pysony.SonyAPI(QX_ADDR=x)
+    time.sleep(1)
 
-    mode = camera.getAvailableApiList()
-    print(mode)
-    print("")
-
-    res = camera.startLiveview()
-    print(res)
-
-    conn = http.client.HTTPConnection("10.0.0.1:60152")
-    conn.request("GET", "/liveview.JPG?!1234!http-get%3a*%3aimage%2fjpeg%3a*!!!!!")
+    conn = http.client.HTTPConnection(host)
+    conn.request("GET", '/'+url)
     res = conn.getresponse()
+
 
     ser = serial.Serial("COM10", 115200)
     com = cvs.SerialCTRl(ser)
     sentData = bytearray(b'\x11\x22\x33\x44\x11')
     com.write(sentData)
+
+
+    # PD = PD.PDControl(0.5, 0.3)
+    PIDctrl = PID.PIDControl(0.5, 0.3, 0.3)
+
+    payloadData = None
+    pastData = None
 
     cnt = 0
     while True:
@@ -77,41 +150,55 @@ def run():
         commonHeader = res.read(commonHeaderLength)
         payloadType = commonHeader[1]
         sequenceNumber = commonHeader[2:4]
-        print("Payload type: %d" % payloadType)
+        # print("Payload type: %d" % payloadType)
 
         payloadHeader = res.read(128)
         startCode = payloadHeader[0:4]
 
         payloadDataSize = payloadHeader[4:7]
         paddingSize = payloadHeader[7]
-        print("%d, %d, %d" % (payloadDataSize[0],payloadDataSize[1],payloadDataSize[2]))
+        # print("%d, %d, %d" % (payloadDataSize[0],payloadDataSize[1],payloadDataSize[2]))
         dataSize = int.from_bytes(payloadDataSize,'big')
-        print("Data size    [Bytes]: %d" % dataSize)
-        print("Padding size [Bytes]: %d" % paddingSize)
+        # print("Data size    [Bytes]: %d" % dataSize)
+        # print("Padding size [Bytes]: %d" % paddingSize)
 
+        if payloadData != None:
+            pastData = payloadData
+            pass
         payloadData = res.read(dataSize)
         if paddingSize != 0:
             paddingData = res.read(paddingSize)
 
         if payloadType == 1:
-            print("Show:")
-            img = Image.open(io.BytesIO(payloadData))
+            # print("Show:")
 
-            filename = 'out%d.jpg' % int.from_bytes(sequenceNumber,'big')
-            img.save(filename)
-            img_saved = cv2.imread(filename)
-            # cv2.imshow('Liveview',img_saved)
+            # redefineThresholdCTRL(thresholdCTRL, error)
+            if cnt % 5 == 0:
+                img_np = cv2.imdecode(np.fromstring(payloadData, np.uint8), cv2.IMREAD_COLOR)
+                if pastData != None:
+                    imgPast_np = cv2.imdecode(np.fromstring(pastData, np.uint8), cv2.IMREAD_COLOR)
+                    error, center = binmom.runPink(img_np)
+                # error, center = binmom.run(img_np)
+                # print(error)
+                # controlMotorPID(PIDctrl, error, com)
+                controlMotor1(error, com, thresholdCTRL)
 
-            error, center = binmom.run(img_saved)
+            if cnt % 5 == 0:
+                cv2.namedWindow('StarTracker', cv2.WINDOW_NORMAL)
+                cv2.imshow("StarTracker",img_np)
+                cv2.waitKey(1)
 
-            if cnt % 10 == 0:
-                cv2.circle(img_saved, (center[0],center[1]), 10, (0,0,255), -1)
-                plt.imshow(cv2.cvtColor(img_saved, cv2.COLOR_BGR2RGB))
-                plt.pause(.01)
-                pass
+            if cnt % 100 == 0:
+                img = Image.open(io.BytesIO(payloadData))
 
-        # redefineThresholdCTRL(thresholdCTRL, error)
-        controlMotor1(error, com, thresholdCTRL)
+                filename = 'out%d.jpg' % int.from_bytes(sequenceNumber,'big')
+                img.save(filename)
+
+                # pass
+
+
+        # controlMotorPD(PD, error, com)
+
 
 
 if __name__ == '__main__':

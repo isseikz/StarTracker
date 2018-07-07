@@ -1,3 +1,6 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
 import numpy as np
 import cv2
 
@@ -29,8 +32,9 @@ if __name__ == '__main__':
     model = cameraModel.CameraModel(cv2.imread('./test/IMAGE_MOON.JPG'))
     controller = PDControl(0.5, 0.3)
 
+    error2 = 0
     error =[100,100] # huristic value
-    while True:
+    while np.linalg.norm(error) > 1.0e-3:
         key = cv2.waitKey(100)&0xff
         if key == ord('s'):
             break
@@ -40,4 +44,6 @@ if __name__ == '__main__':
         ctrl = controller.getControlParam()
 
         model.updateImage(*ctrl)
-        model.showCurrentImage()
+
+        error2 += np.linalg.norm(error)
+        model.showCurrentImage(error2)

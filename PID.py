@@ -1,3 +1,6 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
 import numpy as np
 import cv2
 
@@ -19,8 +22,6 @@ class PIDControl(object):
         self.xDot = x - self.x
         self.xDt  = x + self.xDt
         self.x    = x
-        print(self.x)
-        print(self.xDot)
 
     def getControlParam(self):
         pTerm = self.omega ** 2 * self.x
@@ -36,9 +37,10 @@ if __name__ == '__main__':
     controller = PIDControl(0.5, 0.3, 0.3)
 
     error =[100,100] # huristic value
+    error2 = 0
     pastError = [0,0]
     integralError = [0,0]
-    while True:
+    while np.linalg.norm(error) > 1.0e-3:
         key = cv2.waitKey(100)&0xff
         if key == ord('s'):
             break
@@ -47,8 +49,8 @@ if __name__ == '__main__':
         controller.updateData(error)
         ctrl = controller.getControlParam()
 
+        error2 += np.linalg.norm(error)
         model.updateImage(*ctrl)
-        model.showCurrentImage()
-    else:
-        model.showCurrentImage()
-        cv2.waitKey(0)
+        model.showCurrentImage(error2)
+
+    cv2.waitKey(0)

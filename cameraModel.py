@@ -1,3 +1,6 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
 import numpy as np
 import cv2
 import math
@@ -28,7 +31,7 @@ class CameraModel(object):
         affineMatrix = np.float32(matrix)
         self.currentImage = cv2.warpAffine(self.initialImage, affineMatrix, self.imageSize,flags=cv2.INTER_NEAREST)
 
-    def showCurrentImage(self):
+    def showCurrentImage(self, error2 = 0):
         cv2.namedWindow('Current Image', cv2.WINDOW_NORMAL)
         outputImage = self.currentImage.copy() #OpenCV は別の変数に代入しても，元の変数を改変するため，.copy()関数でクローンを作成する
         cv2.line(outputImage, (self.imageSize[0]//2,self.imageSize[1]//2-20), (self.imageSize[0]//2,self.imageSize[1]//2+20), (200, 200, 200),thickness=3, lineType=cv2.LINE_AA)
@@ -36,6 +39,8 @@ class CameraModel(object):
         cv2.putText(outputImage, 'X POSITION: ' + str(self.position[0]), (40, 70), cv2.FONT_HERSHEY_PLAIN, 4, (255, 255, 255), 3, cv2.LINE_AA)
         cv2.putText(outputImage, 'Y POSITION: ' + str(self.position[1]), (40, 120), cv2.FONT_HERSHEY_PLAIN, 4, (255, 255, 255), 3, cv2.LINE_AA)
         cv2.putText(outputImage, 'STOP: \'s\'', (40, 170), cv2.FONT_HERSHEY_PLAIN, 4, (255, 255, 255), 3, cv2.LINE_AA)
+        if error2 != 0:
+            cv2.putText(outputImage, 'ΣERROR^2: ' + str(error2), (40, 220), cv2.FONT_HERSHEY_PLAIN, 4, (255, 255, 255), 3, cv2.LINE_AA)
         cv2.imshow('Current Image',outputImage)
 
 
@@ -45,6 +50,7 @@ if __name__ == '__main__':
 
     c = 'o'
     ctrl = [0,0]
+    error2 = 0
     while True:
         key = cv2.waitKey(100)&0xff
         if key == ord('s'):
@@ -62,5 +68,6 @@ if __name__ == '__main__':
 
         error, center = binmom.run(model.currentImage)
 
+        error2 += np.linalg.norm(error)
         model.updateImage(*ctrl)
-        model.showCurrentImage()
+        model.showCurrentImage(error2)
