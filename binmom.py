@@ -69,9 +69,11 @@ def runMovingObject(img, pastImg):
 def runPink(img):
     img_size = np.array([img.shape[1],img.shape[0]])
 
-    imgHSV = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
-    lowerPink = np.array([125, 200, 0])
-    upperPink = np.array([255, 255, 200])
+    imgHSV = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+
+    # https://stackoverflow.com/questions/10948589/choosing-the-correct-upper-and-lower-hsv-boundaries-for-color-detection-withcv
+    lowerPink = np.array([150, 150, 20])
+    upperPink = np.array([170, 255, 255])
     imgMask = cv2.inRange(imgHSV, lowerPink, upperPink)
     imgMasked =  cv2.bitwise_and(img, img, mask=imgMask)
     # plt.figure()
@@ -95,7 +97,7 @@ def runPink(img):
     return error, center
 
 if __name__ == '__main__':
-    img = cv2.imread('./out299.JPG',1)
+    img = cv2.imread('./20180707test/out599.jpg',1)
     error, center = runPink(img)
 
     cv2.circle(img, (center[0],center[1]), int(img.shape[1] * 0.01), (0, 0, 255), -1)
