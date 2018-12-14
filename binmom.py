@@ -74,6 +74,15 @@ def runPink(img):
     # https://stackoverflow.com/questions/10948589/choosing-the-correct-upper-and-lower-hsv-boundaries-for-color-detection-withcv
     lowerPink = np.array([150, 150, 20])
     upperPink = np.array([170, 255, 255])
+
+    # # オレンジはこれくらい？
+    # lowerOrange = np.array([10, 150, 20])
+    # upperOrange = np.array([25, 255, 255])
+    #
+    # # 赤はこれくらい？
+    # lowerRed = np.array([165, 150, 20])
+    # upperRed = np.array([180, 255, 255])
+
     imgMask = cv2.inRange(imgHSV, lowerPink, upperPink)
     imgMasked =  cv2.bitwise_and(img, img, mask=imgMask)
     # plt.figure()
